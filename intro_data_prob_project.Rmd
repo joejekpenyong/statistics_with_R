@@ -1,0 +1,202 @@
+---
+title: "Exploring the BRFSS data - Joseph Ekpenyong"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+#### Background
+The Behavioural Risk Factor Surveillance System (BPRSS) is the world's largest continuously conducted health survey. Sponsored by the Centers for Disease Control and Prevention and other US federal agencies, the BPRSS collects data about health-related risk behaviors, chronic health conditions, and use of preventive services from residents in 50 US states, the District of Columbia and three US territories.
+
+#### Scope of Inference - Generalizability
+The survey is conducted via telephone calls made to individuals selected via a random sampling process (phone numbers are generated randomly). With the US having one of the highest telephone to population penetration rates in the world, this approach comes close to eliminating bias in the sampling process, as the target population (adult Americans 18 years or older) is nearly wholly represented by the complete set of telephone numbers from which the random sample is pulled. As a result, the inferences we will make from our analysis can be generalized to the target population.
+
+#### Scope of Inference - Causality
+There was no random assignment done for this dataset as individuals were not assigned into control and treatment groups. As a result, we can conclude that the BPRSS is an observational study, and while our inferences can be generalized to the target population, we cannot infer causality from this data.
+
+* * *
+
+## Part 2: Research questions
+
+**Research Question 1:** Is there an association between the income levels of survey respondents and their mental health?
+
+*Significance of Question 1:* Sayings like "Money does not buy happiness" seem to suggest that wealth is independent of happiness. I am curious to know if Americans who are well-off also happen to have a better mental health.
+
+**Research Question 2:** Is heavy drinking associated with education level and with gender?
+
+*Significance of Question 2:* One would imagine that educated people are generally career focused, and for this reason, would avoid binge drinking on average. But how does this vary with gender?
+
+**Research Question 3:** Is sleep associated with exercise and race?
+
+*Significance of Question 3:* Anecdotally, I believe that when people exercise, their bodies tend to behave in healthy manners including having regular hours of sleep. I am curious to find the relationship between these two variables and to see if they are dependent on race.
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+### **Research Question 1:**
+**Is there an association between the income levels of survey respondents and their mental health?**
+
+#### Variables
+1. income2: Income Level. *Is your annual household income from all sources: (If respondent refuses at any income level, code “Refused.”)*
+    
+2. menthlth: Number Of Days Mental Health Not Good. *Now thinking about your mental health, which includes stress, depression, and problems with emotions, for how many days during the past 30 days was your mental health not good?*
+
+
+#### Pre-processing
+```{r}
+brfss_q1 <- brfss2013 %>%
+  filter(!(is.na(income2)), !(is.na(menthlth)), menthlth < 32)
+
+```
+
+For the data summary that we need to perform below, it is necessary to remove all rows that contain NA values. Additionally, there is a value for the menthlth variable that is 247. Since the question represented in that variable asked for number of days during the past 30 days that a person's mental health was not good, we will treat this case as a human error and delete it from our data.
+
+
+#### Summary Statistics
+```{r}
+brfss_q1 %>%
+  group_by(income2) %>%
+  summarize(avg_menthlth = mean(menthlth), count = n())
+```
+
+#### Plot
+```{r}
+ggplot(brfss_q1, aes(x = income2, y = menthlth)) +
+  geom_boxplot() +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
+  labs(x = "\n Income Level", y = "Number of Days of Bad Mental Health\n") +
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold"),
+        axis.title.y = element_text(face="bold"),
+        legend.title = element_text(face="bold", size = 10))
+```
+
+#### Data/Graph Interpretation and Conclusion
+
+In the table above, we notice that the average days of bad mental health reported by the survey respondents varies from one income bracket to another. Respondents who earn below \$10,000 reported an average of 7.82 bad mental days, whereas those who earned between \$25,000 and \$35,000 reported an average of 3.35 bad mental days. Additionally, in the boxplot, we can see that there are higher variations on the menthlth variable for respondents with lower income.
+
+The table and plot suggest that mental health and income level are dependent. As this is only an observational study, we can generalize this correlation to the target population (adult Americans older than 18 who have high incomes tend to experience fewer mental health problems), but our analysis is not enough to lead to any inference of causality.
+
+
+### **Research Question 2:**
+**Is heavy drinking associated with education level and with gender?**
+
+#### Variables
+1. drnk3ge5: Binge Drinking. *Considering all types of alcoholic beverages, how many times during the past 30 days did you have 5 or more drinks for men or 4 or more drinks for women on an occasion?*
+
+2. X_educag: Computed Level Of Education Completed Categories. *Level of education completed*
+
+3. sex: Respondents Sex. *Indicate sex of respondent.*
+
+
+#### Pre-processing
+```{r}
+brfss_q2 <- brfss2013 %>%
+  filter(!(is.na(X_educag)), !(is.na(sex)), !(is.na(drnk3ge5)))
+```
+
+To prepare for our analysis below, we remove all rows that contain NA values for the education level, sex, and binge drinking variables. Admittedly, we lose a significant portion of the data with this approach, but it was necessary as the other alcohol-related variables contain values that are in themselves codes and not actual count values.
+
+#### Summary Statistics
+```{r}
+brfss_q2_table <- brfss_q2 %>%
+  group_by(X_educag, sex) %>%
+  summarize(avg_binge_days = mean(drnk3ge5), count = n())
+
+brfss_q2_table
+```
+
+
+#### Plot
+```{r}
+ggplot(data = brfss_q2_table, aes(x = X_educag, y = avg_binge_days, fill = sex)) +
+    geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75)  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 20)) +
+    labs(x = "\n Education Level", y = "Average Days of Binge Drinking\n") +
+    theme(plot.title = element_text(hjust = 0.5), 
+          axis.title.x = element_text(face="bold"),
+          axis.title.y = element_text(face="bold"),
+          legend.title = element_text(face="bold", size = 10))
+```
+
+#### Data/Graph Interpretation and Conclusion
+As we can see on the brfss_q2_table, within each gender, the avg_binge_days value was higher for people who did not complete high school than it was for people who graduated from college or a technical school. Additionally, within each education level, we see that the average days spent binge drinking was higher for males than it was for females.
+
+The brfss_q2_table and plot above show that the number of days survey respondents spent binge drinking was dependent both on their education level and gender. As this is an observational study, we can generalize the findings of this study to the target population (American male adults - 18 or older - are likely to spend more days binge drinking than female adults AND a higher education level for American adults is related to fewer days of binge drinking.) However, our analysis is not enough to lead to inferences of causality.
+
+
+### **Research Question 3:**
+**Is sleep associated with exercise and race?**
+
+#### Variables
+1. sleptim1: How Much Time Do You Sleep. *I would like to ask you about your sleep pattern. On average, how many hours of sleep do you get in a 24-hour period?*
+
+2. exerany2: Exercise In Past 30 Days. *During the past month, other than your regular job, did you participate in any physical activities or exercises such as running, calisthenics, golf, gardening, or walking for exercise?*
+
+3. X_imprace: Imputed Race/Ethnicity Value. *Imputed race/ethnicity value (This value is the reported race/ethnicity or an imputed race/ethnicity, if the respondent refused to give a race/ethnicity. The value of the imputed race/ethnicity will be the most common race/ethnicith response for that region of the state)*
+
+#### Pre-processing
+
+```{r}
+brfss_q3 <- brfss2013 %>%
+  filter(!(is.na(sleptim1)), !(is.na(exerany2)), !(is.na(X_imprace)))
+```
+
+To prepare for our analysis below, we remove all rows that contain NA values for the sleep time, exercise, and race variables.
+
+#### Summary Statistics
+```{r}
+brfss_q3_table <- brfss_q3 %>%
+  group_by(X_imprace, exerany2) %>%
+  summarize(avg_sleep_hrs = mean(sleptim1), count=n())
+  
+brfss_q3_table
+```
+
+#### Plot
+
+```{r}
+ggplot(data = brfss_q3_table, aes(x = X_imprace, y = avg_sleep_hrs, fill = exerany2)) +
+    geom_bar(stat = "identity", position = position_dodge(), alpha = 0.75)  +
+    scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+    labs(x = "\n Race", y = "Average Hours of Sleep\n", fill = "Exercise") +
+    theme(plot.title = element_text(hjust = 0.5), 
+          axis.title.x = element_text(face="bold"),
+          axis.title.y = element_text(face="bold"),
+          legend.title = element_text(face="bold", size = 10))
+```
+
+#### Data/Graph Interpretation and Conclusion
+
+The brfss_q3_table shows that the range of the average sleeping hours for respondents in each race-exercise pair is 6.67 to 7.10. Across all racial groupings, the average sleeping hours is consistently higher for individuals who exercised than it is for those who did not; however, we would need further tests to determine if this difference in averages is significant enough to not be attributed to chance. Additionally, the average sleeping hours among races for respondents who exercise does not appear to be different enough to not be attributed to chance.
+
+The brfss_q3_table and plot above suggest that average hours of sleep is independent of race and exercise status. As this is an observational study, we can generalize our findings to the target population (adult Americans - 18 years or older). However, our analysis is not enough to lead to inferences of causality.
